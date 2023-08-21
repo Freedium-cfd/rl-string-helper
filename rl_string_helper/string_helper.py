@@ -79,7 +79,7 @@ class RLStringHelper:
         utf_16_bang_list = []
         string_len_utf_16 = len(string.encode("utf-16-le")) // 2
         if string_len_utf_16 == len(string):
-            logger.debug("String is doesn't contain multibyte characters")
+            logger.trace("String is doesn't contain multibyte characters")
             return string, string_pos_matrix, utf_16_bang_list
 
         i = 0
