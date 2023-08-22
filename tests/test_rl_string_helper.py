@@ -1,6 +1,6 @@
 import sys
-from loguru import logger
 
+from loguru import logger
 from rl_string_helper import RLStringHelper, quote_html
 
 
@@ -63,6 +63,15 @@ class TestRLStringHelper:
         # Replace AA to CD
         helper.set_replace(0, 2, "CD")
         assert str(helper) == "CD"
+
+    def test_multibyte_replace(self):
+        helper = RLStringHelper("TESERT - 📊 - ABC")
+        helper.set_replace(0, 6, "B")
+        assert helper.get_text() == "B - 📊 - ABC"
+
+        helper = RLStringHelper("TESERT ALMACOM - 📊 - ABC")
+        helper.set_replace(0, 14, "B")
+        assert helper.get_text() == "B - 📊 - ABC"
 
     def test_medium_all(self):
         helper = RLStringHelper("ABC Hello world")

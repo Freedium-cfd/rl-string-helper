@@ -1,6 +1,7 @@
 from loguru import logger
 
 from .logger_trace import trace
+from .utils import quote_html
 
 
 # TODO: doc!
@@ -39,10 +40,12 @@ class StringAsignmentMix:
         return self
 
     def __setitem__(self, key, value):
+        logger.trace(f"Calling __setitem__ with {key=}, {value=}")
         self.string_list[key] = value
         return self
 
     def __getitem__(self, key):
+        logger.trace(f"Calling __getitem__ with {key=}")
         str_list_res = self.string_list[key]
         return "".join(str_list_res)
 
@@ -67,12 +70,14 @@ Python uses UTF-8 encoding, which each character is encoded as one byte. So here
 # TODO: doc! Who will read this noodles lol?
 # TODO: check cases when UTF-16 character can be more that 2 bytes
 class RLStringHelper:
-    __slots__ = ("string", "templates", "replaces")
+    __slots__ = ("string", "templates", "replaces", "quote_html", "quote_replaces")
 
-    def __init__(self, string: str):
+    def __init__(self, string: str, quote_html: bool = True):
         self.string = StringAsignmentMix(string)
         self.templates = []
+        self.quote_replaces = []
         self.replaces = []
+        self.quote_html = quote_html
 
     @trace
     def pre_utf_16_bang(self, string: str, string_pos_matrix: list, _default_bang_char: str = "R"):
@@ -89,15 +94,15 @@ class RLStringHelper:
             char_len = len(char.encode("utf-16-le")) // 2
             char_len_dif = char_len - 1
             if char_len == 2:
-                logger.trace("Char is two bytes")
-                # logger.trace("Char is multibyte")
+                logger.trace(f"'{char}' char is two bytes")
+                # logger.trace(f"'{char}' char is multibyte")
                 char_present = _default_bang_char * char_len_dif
                 logger.trace(f"{char_present=}")
                 string, string_pos_matrix = self._paste_char(string, string_pos_matrix, new_i + 1, char_present)
                 i += 1
                 utf_16_bang_list.append((i, char_len_dif))
             elif char_len == 1:
-                logger.trace("Char is single byte")
+                logger.trace(f"'{char}' char is single byte")
                 pass
             else:
                 ValueError(f"Invalid char: {char}")
@@ -151,9 +156,9 @@ class RLStringHelper:
         self.replaces.append(lazy_replace)
         logger.trace(self.replaces)
 
-    def _render_templates(self, string: str, string_pos_matrix: list):
+    def _render_templates(self, string: str, string_pos_matrix: list, utf_16_bang_list: list):
         if not self.templates:
-            return string, string_pos_matrix
+            return string, string_pos_matrix, utf_16_bang_list
 
         templates = self.templates
         templates.reverse()
@@ -192,14 +197,18 @@ class RLStringHelper:
         def update_nested_positions(start, end, prefix_len, suffix_len):
             logger.error(len(self.string) == len(string_pos_matrix))
             logger.trace(len(self.string))
-            for i in range(end, len(string_pos_matrix)):  # + 1
+            for i in range(end, len(string_pos_matrix)):
                 logger.trace(f"{i=}")
                 logger.trace(f"{string_pos_matrix[i]=}")
                 string_pos_matrix[i] = string_pos_matrix[i] + suffix_len + prefix_len
 
             for i in range(start, end):
-                # logger.trace(f"i: {i}")
                 string_pos_matrix[i] = string_pos_matrix[i] + prefix_len
+
+                for n in range(len(utf_16_bang_list)):
+                    utf_16_bang = utf_16_bang_list[n]
+                    if utf_16_bang[0] > i:
+                        utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len, utf_16_bang[1])
 
         logger.trace(string_pos_matrix)
 
@@ -224,13 +233,8 @@ class RLStringHelper:
                 string_pos_matrix[end - 1] + 1,
             )
 
-            # if len(string_pos_matrix) + 1 == end:
-            #     new_end = string_pos_matrix[end - 2]
-            # else:
-            #    new_end = string_pos_matrix[end - 1] + 1
-
             if new_end < new_start:
-                raise ValueError(f"Invalid range: {new_end=} {new_start=}")
+                raise ValueError(f"Invalid negative range: {new_start=} {new_end=}")
 
             logger.trace(f"{new_start=}, {new_end=}")
 
@@ -251,22 +255,18 @@ class RLStringHelper:
 
             logger.trace(string_pos_matrix)
 
-        return updated_text, string_pos_matrix
+        return updated_text, string_pos_matrix, utf_16_bang_list
 
     @trace
-    def _render_replaces(self, string: str, string_pos_matrix: list):
-        if not self.replaces:
-            return string, string_pos_matrix
+    def _render_replaces(self, string: str, string_pos_matrix: list, utf_16_bang_list: list):
+        if not self.replaces and not self.quote_replaces:
+            return string, string_pos_matrix, utf_16_bang_list
 
         string = StringAsignmentMix(string)
+        replaces = self.replaces + self.quote_replaces
 
         @trace
         def update_positions(start: int, end: int, replace_len: int, new_start: int, new_end: int):
-            # if isinstance(start, tuple):
-            #     start = min(start)
-            # if isinstance(end, tuple):
-            #     end = max(end)
-            # pos_len = len(range(new_start, new_end)) -
             pos_len = len(range(start, end))
             logger.trace(pos_len)
             pos_len_diff = replace_len - pos_len
@@ -293,9 +293,14 @@ class RLStringHelper:
                             string_pos_matrix[i][1] + replace_len,
                         )
 
+            for n in range(len(utf_16_bang_list)):
+                utf_16_bang = utf_16_bang_list[n]
+                if utf_16_bang[0] > end:
+                    utf_16_bang_list[n] = (utf_16_bang[0] + pos_len_diff, utf_16_bang[1])
+
         logger.trace(string_pos_matrix)
 
-        for (start, end), replace_with in self.replaces:
+        for (start, end), replace_with in replaces:
             new_start, new_end = string_pos_matrix[start], string_pos_matrix[end - 1]
             if isinstance(new_end, int):
                 new_end += 1
@@ -325,15 +330,22 @@ class RLStringHelper:
             update_positions(start, end, len(replace_with), new_start, new_end)
             logger.trace(string_pos_matrix)
 
-        return string, string_pos_matrix
+        return string, string_pos_matrix, utf_16_bang_list
 
     @trace
     def __str__(self):
         string = StringAsignmentMix(self.string)
         string_pos_matrix = [pos for pos in range(len(string))]
         updated_text, string_pos_matrix, utf_16_bang_list = self.pre_utf_16_bang(string, string_pos_matrix)
-        updated_text, string_pos_matrix = self._render_templates(updated_text, string_pos_matrix)
-        updated_text, string_pos_matrix = self._render_replaces(updated_text, string_pos_matrix)
+
+        if self.quote_html:
+            self.quote_replaces = []
+            html_quote_replaces = quote_html(str(updated_text))
+            for html_quote in html_quote_replaces:
+                self.quote_replaces.append(html_quote)
+
+        updated_text, string_pos_matrix, utf_16_bang_list = self._render_templates(updated_text, string_pos_matrix, utf_16_bang_list)
+        updated_text, string_pos_matrix, utf_16_bang_list = self._render_replaces(updated_text, string_pos_matrix, utf_16_bang_list)
         updated_text, string_pos_matrix = self.post_utf_16_bang(updated_text, string_pos_matrix, utf_16_bang_list)
         return str(updated_text)
 
