@@ -73,6 +73,15 @@ class TestRLStringHelper:
         helper.set_replace(0, 14, "B")
         assert helper.get_text() == "B - 📊 - ABC"
 
+        helper = RLStringHelper("hello - 📊 - ABC")
+        helper.set_template(0, 5, "<a>{text}</a>")
+        assert helper.get_text() == "<a>hello</a> - 📊 - ABC"
+
+    def test_todo(self):
+        helper = RLStringHelper("ABC 📊 - How are you?")
+        helper.set_template(4, 6, "<a>{text}</a>")
+        assert str(helper) == "ABC <a>📊</a> - How are you?"
+
     def test_medium_all(self):
         helper = RLStringHelper("ABC Hello world")
         helper.set_replace(0, 1, "B")

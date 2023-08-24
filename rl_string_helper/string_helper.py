@@ -100,7 +100,7 @@ class RLStringHelper:
                 logger.trace(f"{char_present=}")
                 string, string_pos_matrix = self._paste_char(string, string_pos_matrix, new_i + 1, char_present)
                 i += 1
-                utf_16_bang_list.append((i, char_len_dif))
+                utf_16_bang_list.append((i, char_len_dif, i))
             elif char_len == 1:
                 logger.trace(f"'{char}' char is single byte")
                 pass
@@ -121,9 +121,9 @@ class RLStringHelper:
         string.insert(pos, char)
         return string, string_pos_matrix
 
-    def _delete_char(self, string: str, string_pos_matrix: list, pos: int, char_len: int):
+    def _delete_char(self, string: str, string_pos_matrix: list, pos: int, char_len: int, old_pos: int):
         string.pop(pos)
-        string_pos_matrix.pop(pos)
+        string_pos_matrix.pop(old_pos)
         for matrix_i, matrix in enumerate(string_pos_matrix[pos:], pos):
             if isinstance(string_pos_matrix[matrix_i], int):
                 string_pos_matrix[matrix_i] -= char_len
@@ -136,8 +136,8 @@ class RLStringHelper:
         string = StringAsignmentMix(string)
 
         post_transbang = 0
-        for bang_pos, char_len in utf_16_bang_list:
-            string, string_pos_matrix = self._delete_char(string, string_pos_matrix, bang_pos - post_transbang, char_len)
+        for bang_pos, char_len, old_pos in utf_16_bang_list:
+            string, string_pos_matrix = self._delete_char(string, string_pos_matrix, bang_pos - post_transbang, char_len, old_pos)
             post_transbang += char_len
 
         logger.trace(utf_16_bang_list)
@@ -195,8 +195,8 @@ class RLStringHelper:
 
         @trace
         def update_nested_positions(start, end, prefix_len, suffix_len):
-            logger.error(len(self.string) == len(string_pos_matrix))
-            logger.trace(len(self.string))
+            logger.trace(len(self.string) == len(string_pos_matrix))
+            logger.trace(f"{len(self.string)=}")
             for i in range(end, len(string_pos_matrix)):
                 logger.trace(f"{i=}")
                 logger.trace(f"{string_pos_matrix[i]=}")
@@ -205,10 +205,12 @@ class RLStringHelper:
             for i in range(start, end):
                 string_pos_matrix[i] = string_pos_matrix[i] + prefix_len
 
-                for n in range(len(utf_16_bang_list)):
-                    utf_16_bang = utf_16_bang_list[n]
-                    if utf_16_bang[0] > i:
-                        utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len, utf_16_bang[1])
+            for n in range(len(utf_16_bang_list)):
+                utf_16_bang = utf_16_bang_list[n]
+                if utf_16_bang[0] > end:
+                    utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len + suffix_len, utf_16_bang[1], utf_16_bang[2])
+                elif utf_16_bang[0] > start:
+                    utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len, utf_16_bang[1] + suffix_len, utf_16_bang[2])
 
         logger.trace(string_pos_matrix)
 
@@ -234,7 +236,10 @@ class RLStringHelper:
             )
 
             if new_end < new_start:
-                raise ValueError(f"Invalid negative range: {new_start=} {new_end=}")
+                logger.error(f"Invalid negative range: {new_start=} {new_end=}. Ignore.....")
+                # we had to ignore this error since we need to release new version
+                # raise ValueError(f"Invalid negative range: {new_start=} {new_end=}")
+                continue
 
             logger.trace(f"{new_start=}, {new_end=}")
 
@@ -296,7 +301,7 @@ class RLStringHelper:
             for n in range(len(utf_16_bang_list)):
                 utf_16_bang = utf_16_bang_list[n]
                 if utf_16_bang[0] > end:
-                    utf_16_bang_list[n] = (utf_16_bang[0] + pos_len_diff, utf_16_bang[1])
+                    utf_16_bang_list[n] = (utf_16_bang[0] + pos_len_diff, utf_16_bang[1], utf_16_bang[2])
 
         logger.trace(string_pos_matrix)
 
@@ -351,3 +356,139 @@ class RLStringHelper:
 
     def get_text(self):
         return self.__str__()
+
+
+
+def split_overlapping_ranges(positions):
+    if not positions:
+        return []
+
+    # Sort the positions by start
+    positions.sort(key=lambda x: x["start"])
+    logger.trace(positions)
+
+    # Initialize the result list with the first position
+    result = [positions[0]]
+    logger.trace(result)
+
+    for pos in positions[1:]:
+        logger.trace(pos)
+        last = result[-1]
+
+        # If the current position overlaps with the last one in the result
+        if pos["start"] < last["end"]:
+            logger.trace(0)
+            # If the current position has a different markup and ends before the last one
+            if pos["type"] != last["type"] and pos["end"] < last["end"]:
+                logger.trace(1)
+                # Split the last position into three
+                result[-1] = {
+                    "start": last["start"],
+                    "end": pos["start"],
+                    "type": last["type"],
+                    "template": last["template"],
+                }
+                logger.trace(result)
+                result.append(
+                    {
+                        "start": pos["start"],
+                        "end": pos["end"],
+                        "type": pos["type"],
+                        "template": pos["template"],
+                    }
+                )
+                logger.trace(result)
+                result.append(
+                    {
+                        "start": pos["start"],
+                        "end": pos["end"],
+                        "type": last["type"],
+                        "template": last["template"],
+                    }
+                )
+                logger.trace(result)
+                result.append(
+                    {
+                        "start": pos["end"],
+                        "end": last["end"],
+                        "type": last["type"],
+                        "template": last["template"],
+                    }
+                )
+                logger.trace(result)
+            elif pos["type"] != last["type"]:
+                logger.trace(2)
+                # Split the last position into two, updating end of the last position
+                result[-1] = {
+                    "start": last["start"],
+                    "end": pos["start"],
+                    "type": last["type"],
+                    "template": last["template"],
+                }
+                logger.trace(result)
+                result.append(
+                    {
+                        "start": pos["start"],
+                        "end": pos["end"],
+                        "type": pos["type"],
+                        "template": pos["template"],
+                    }
+                )
+                logger.trace(result)
+                result.append(
+                    {
+                        "start": pos["start"],
+                        "end": last["end"],
+                        "type": last["type"],
+                        "template": last["template"],
+                    }
+                )
+                logger.trace(result)
+            else:
+                logger.trace(3)
+                # Update the end of the last position in the result
+                result[-1]["end"] = max(last["end"], pos["end"])
+                logger.trace(result)
+        else:
+            logger.trace(4)
+            # Add the current position to the result
+            result.append(pos)
+            logger.trace(result)
+
+    return result
+
+
+def parse_markups(markups: list):
+    markups_out = []
+
+    for markup in markups:
+        logger.trace(markup)
+        if markup["type"] == "A":
+            if markup["anchorType"] == "LINK":
+                template = '<a style="text-decoration: underline;" rel="{rel}" title="{title}" href="{href}" target="_blank">{{text}}</a>'
+                template = template.format(
+                    rel=markup.get("rel", ""),
+                    title=markup.get("title", ""),
+                    href=markup["href"],
+                )
+            elif markup["anchorType"] == "USER":
+                template = '<a style="text-decoration: underline;" href="https://medium.com/u/{userId}">{{text}}</a>"'
+                template = template.format(userId=markup["userId"])
+            else:
+                logger.error(f"Can't proccess 'anchorType': {markup['anchorType']}")
+                continue
+        elif markup["type"] == "STRONG":
+            template = "<strong>{text}</strong>"
+        elif markup["type"] == "EM":
+            template = "<em>{text}</em>"
+        elif markup["type"] == "CODE":
+            template = "<code>{text}</code>"
+        else:
+            logger.error(f"Unknown markup type: {markup}")
+            continue
+
+        markup["template"] = template
+        markups_out.append(markup)
+
+    return markups_out
+
