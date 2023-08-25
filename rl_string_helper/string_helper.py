@@ -344,6 +344,7 @@ class RLStringHelper:
     @trace
     def __str__(self):
         string = StringAsignmentMix(self.string)
+
         string_pos_matrix = [pos for pos in range(len(string))]
         updated_text, string_pos_matrix, utf_16_bang_list = self.pre_utf_16_bang(string, string_pos_matrix)
 
@@ -352,6 +353,9 @@ class RLStringHelper:
             html_quote_replaces = quote_html(str(updated_text))
             for html_quote in html_quote_replaces:
                 self.quote_replaces.append(html_quote)
+
+        if not self.templates and not self.replaces and not self.quote_replaces:
+            return self.string
 
         updated_text, string_pos_matrix, utf_16_bang_list = self._render_templates(updated_text, string_pos_matrix, utf_16_bang_list)
         updated_text, string_pos_matrix, utf_16_bang_list = self._render_replaces(updated_text, string_pos_matrix, utf_16_bang_list)
@@ -471,7 +475,7 @@ def parse_markups(markups: list):
                 template = jinja_env.from_string('<a style="text-decoration: underline;" rel="{{rel}}" title="{{title}}" href="{{href}}" target="_blank">{{text}}</a>')
                 template = template.render(rel=markup.get("rel", ""), title=markup.get("title", ""), href=markup["href"])
             elif markup["anchorType"] == "USER":
-                template = jinja_env.from_string('<a style="text-decoration: underline;" href="https://medium.com/u/{{userId}}">{{text}}</a>"')
+                template = jinja_env.from_string('<a style="text-decoration: underline;" href="https://medium.com/u/{{userId}}">{{text}}</a>')
                 template = template.render(userId=markup["userId"])
             else:
                 logger.error(f"Can't proccess 'anchorType': {markup['anchorType']}")
