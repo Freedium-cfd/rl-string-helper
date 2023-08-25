@@ -3,6 +3,10 @@ from loguru import logger
 from .logger_trace import trace
 from .utils import quote_html
 
+from jinja2 import Environment, DebugUndefined, Template
+
+jinja_env = Environment(undefined=DebugUndefined)
+
 
 # TODO: doc!
 class StringAsignmentMix:
@@ -137,7 +141,7 @@ class RLStringHelper:
 
         post_transbang = 0
         for bang_pos, char_len, old_pos in utf_16_bang_list:
-            string, string_pos_matrix = self._delete_char(string, string_pos_matrix, bang_pos - post_transbang, char_len, old_pos)
+            string, string_pos_matrix = self._delete_char(string, string_pos_matrix, bang_pos - post_transbang, char_len, old_pos - post_transbang)
             post_transbang += char_len
 
         logger.trace(utf_16_bang_list)
@@ -146,6 +150,8 @@ class RLStringHelper:
 
     @trace
     def set_template(self, start: int, end: int, template: str):
+        if not isinstance(template, Template):
+            template = jinja_env.from_string(template)
         lazy_template = (start, end), template
         self.templates.append(lazy_template)
         logger.trace(self.templates)
@@ -169,29 +175,26 @@ class RLStringHelper:
         logger.trace(string_pos_matrix)
 
         @trace
-        def _get_prefix_len(template: str, inner_char: str = "{"):
-            _tmp_a = ""
+        def _get_prefix_len(template_raw: Template, inner_char: str = "{"):
+            prefix_len = 0
+            template = template_raw.render()
             for i in range(len(template)):
-                _tmp_char = template[i]
-                if _tmp_char == inner_char:
-                    break
-                _tmp_a += _tmp_char
+                if template[i] == inner_char:
+                    return prefix_len
+                prefix_len += 1
             else:
                 raise ValueError(f"Invalid template: {template}")
-            return len(_tmp_a)
 
         @trace
-        def _get_suffix_len(template: str, outer_char: str = "}"):
-            _tmp_a = ""
+        def _get_suffix_len(template_raw: Template, outer_char: str = "}"):
+            suffix_len = 0
+            template = template_raw.render()
             for i in range(len(template) - 1, -1, -1):
-                logger.trace(i)
-                _tmp_char = template[i]
-                if _tmp_char == outer_char:
-                    break
-                _tmp_a += _tmp_char
+                if template[i] == outer_char:
+                    return suffix_len
+                suffix_len += 1
             else:
                 raise ValueError(f"Invalid template: {template}")
-            return len(_tmp_a)
 
         @trace
         def update_nested_positions(start, end, prefix_len, suffix_len):
@@ -248,9 +251,10 @@ class RLStringHelper:
             older_text = updated_text
             logger.trace(f"{older_text=}")
 
-            context_text = template.format(text=updated_text[new_start:new_end])
+            context_text = template.render(text=older_text[new_start:new_end])
             logger.trace(context_text)
-            updated_text = f"{updated_text[:new_start]}{context_text}{updated_text[new_end:]}"
+            updated_text_template = jinja_env.from_string("{{ updated_text[:new_start] }}{{ context_text }}{{updated_text[new_end:]}}")
+            updated_text = updated_text_template.render(updated_text=updated_text, context_text=context_text, new_start=new_start, new_end=new_end)
             logger.trace(updated_text)
 
             prefix_len = _get_prefix_len(template)
@@ -356,7 +360,6 @@ class RLStringHelper:
 
     def get_text(self):
         return self.__str__()
-
 
 
 def split_overlapping_ranges(positions):
@@ -465,27 +468,25 @@ def parse_markups(markups: list):
         logger.trace(markup)
         if markup["type"] == "A":
             if markup["anchorType"] == "LINK":
-                template = '<a style="text-decoration: underline;" rel="{rel}" title="{title}" href="{href}" target="_blank">{{text}}</a>'
-                template = template.format(
-                    rel=markup.get("rel", ""),
-                    title=markup.get("title", ""),
-                    href=markup["href"],
-                )
+                template = jinja_env.from_string('<a style="text-decoration: underline;" rel="{{rel}}" title="{{title}}" href="{{href}}" target="_blank">{{text}}</a>')
+                template = template.render(rel=markup.get("rel", ""), title=markup.get("title", ""), href=markup["href"])
             elif markup["anchorType"] == "USER":
-                template = '<a style="text-decoration: underline;" href="https://medium.com/u/{userId}">{{text}}</a>"'
-                template = template.format(userId=markup["userId"])
+                template = jinja_env.from_string('<a style="text-decoration: underline;" href="https://medium.com/u/{{userId}}">{{text}}</a>"')
+                template = template.render(userId=markup["userId"])
             else:
                 logger.error(f"Can't proccess 'anchorType': {markup['anchorType']}")
                 continue
         elif markup["type"] == "STRONG":
-            template = "<strong>{text}</strong>"
+            template = "<strong>{{text}}</strong>"
         elif markup["type"] == "EM":
-            template = "<em>{text}</em>"
+            template = "<em>{{text}}</em>"
         elif markup["type"] == "CODE":
-            template = "<code class='p-1'>{text}</code>"
+            template = "<code class='p-1'>{{text}}</code>"
         else:
             logger.error(f"Unknown markup type: {markup}")
             continue
+
+        template = jinja_env.from_string(template)
 
         markup["template"] = template
         markups_out.append(markup)
