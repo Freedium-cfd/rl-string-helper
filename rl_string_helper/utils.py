@@ -10,12 +10,12 @@ QUOTE_REPLACE_WITH = {
 }
 
 EXTRA_QUOTE_PATTERN = re.compile("|".join(map(re.escape, ["\n", "\t"])))  # '  '
-EXTRA_QUOTE_REPLACE_WITH = {"\n": "<br />", "\t": "&emsp;", "  ": " &nbsp;"}
+EXTRA_QUOTE_REPLACE_WITH = {"\n": "<br />", "\t": "&emsp;"}  # "  ": " &nbsp;"
 
 
 # https://stackoverflow.com/questions/1061697/whats-the-easiest-way-to-escape-html-in-python
 # XXX: disabling extra quoting as workaround
-def quote_html(html: str, extra: bool = False) -> str:
+def quote_html(html: str, extra: bool = True) -> str:
     for m in QUOTE_PATTERN.finditer(html):
         yield m.span(), QUOTE_REPLACE_WITH[m.group(1)]
     if extra:
