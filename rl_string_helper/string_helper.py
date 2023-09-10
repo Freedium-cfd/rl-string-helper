@@ -223,9 +223,10 @@ class RLStringHelper:
 
             logger.trace(f"{start=}, {end=}, {template=}")
 
-            if end - 1 == len(string_pos_matrix):
+            if end - 1 >= len(string_pos_matrix):
                 logger.warning("End position is out of range. Using workaround.")
-                end -= 1
+                while end - 1 >= len(string_pos_matrix):
+                    end -= 1
 
             if start == end:
                 logger.warning("Start and end positions are the same")
