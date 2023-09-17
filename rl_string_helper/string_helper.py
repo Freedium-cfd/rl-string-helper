@@ -96,8 +96,9 @@ class RLStringHelper:
             new_i = string_pos_matrix[i]
             char = string[new_i]
             char_len = len(char.encode("utf-16-le")) // 2
-            char_len_dif = char_len - 1
             if char_len == 2:
+                char_len_dif = char_len - 1
+                logger.trace(char_len_dif)
                 logger.trace(f"'{char}' char is two bytes")
                 # logger.trace(f"'{char}' char is multibyte")
                 char_present = _default_bang_char * char_len_dif
@@ -213,7 +214,7 @@ class RLStringHelper:
                 if utf_16_bang[0] > end:
                     utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len + suffix_len, utf_16_bang[1], utf_16_bang[2])
                 elif utf_16_bang[0] > start:
-                    utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len, utf_16_bang[1] + suffix_len, utf_16_bang[2])
+                    utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len, utf_16_bang[1], utf_16_bang[2])
 
         logger.trace(string_pos_matrix)
 
@@ -356,7 +357,8 @@ class RLStringHelper:
                 self.quote_replaces.append(html_quote)
 
         if not self.templates and not self.replaces and not self.quote_replaces:
-            return self.string
+            logger.warning("No templates, no replaces, no quote_replaces")
+            return str(self.string)
 
         updated_text, string_pos_matrix, utf_16_bang_list = self._render_templates(updated_text, string_pos_matrix, utf_16_bang_list)
         updated_text, string_pos_matrix, utf_16_bang_list = self._render_replaces(updated_text, string_pos_matrix, utf_16_bang_list)
