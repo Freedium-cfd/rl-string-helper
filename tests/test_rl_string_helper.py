@@ -1,7 +1,7 @@
 import sys
 
 from loguru import logger
-from rl_string_helper import RLStringHelper, quote_html
+from rl_string_helper import RLStringHelper, quote_html, parse_markups
 
 
 class TestRLStringHelper:
@@ -89,6 +89,26 @@ class TestRLStringHelper:
         issue_text = "Whilst academic research papers have highlighted performance issues with the prophet since 2017, the propagation of package popularity through the data science community has been fueled by 𝙗𝙤𝙩𝙝 𝙚𝙭𝙘𝙚𝙨𝙨𝙞𝙫𝙚 𝙘𝙡𝙖𝙞𝙢𝙨 𝙛𝙧𝙤𝙢 𝙩𝙝𝙚 𝙤𝙧𝙞𝙜𝙞𝙣𝙖𝙡 𝙙𝙚𝙫𝙚𝙡𝙤𝙥𝙢𝙚𝙣𝙩 𝙩𝙚𝙖𝙢 𝙗𝙪𝙩 𝙢𝙤𝙧𝙚 𝙞𝙢𝙥𝙤𝙧𝙩𝙖𝙣𝙩𝙡𝙮 𝙗𝙮 𝙢𝙖𝙧𝙠𝙚𝙩𝙞𝙣𝙜 𝙤𝙛 𝙩𝙝𝙚 𝙣𝙤𝙣-𝙥𝙚𝙧𝙛𝙤𝙧𝙢𝙞𝙣𝙜 𝙥𝙖𝙘𝙠𝙖𝙜𝙚 𝙫𝙞𝙖 𝙖𝙧𝙩𝙞𝙘𝙡𝙚𝙨 𝙤𝙣 𝙈𝙚𝙙𝙞𝙪𝙢 𝙖𝙣𝙙 𝙨𝙤𝙘𝙞𝙖𝙡 𝙢𝙚𝙙𝙞𝙖."
         helper = RLStringHelper(issue_text)
         assert helper.get_text() == issue_text
+
+    def test_markup_parser(self):
+        href_markup = {
+            "__typename": 'Markup',
+            "anchorType": 'LINK',
+            "end": 12,
+            "href": 'https://readwise.io/bookreview/{{book_id',
+            "name": None,
+            "rel": 'nofollow',
+            "start": 0,
+            "title": '',
+            "type": 'A',
+            "userId": None
+        }
+
+        helper = RLStringHelper("Hello world")
+        markups = parse_markups([href_markup])
+        for markup in markups:
+            helper.set_template(markup["start"], markup["end"], markup["template"])
+        assert helper.get_text() == '<a style="text-decoration: underline;" rel="nofollow" title="" href="https://readwise.io/bookreview/{{book_id" target="_blank">Hello world</a>'
 
     def test_medium_all(self):
         helper = RLStringHelper("ABC Hello world")

@@ -468,6 +468,13 @@ def split_overlapping_ranges(positions):
     return result
 
 
+def raw_render(**kwargs):
+    for key, value in kwargs.items():
+        if isinstance(value, str):
+            kwargs[key] = f"{{% raw %}}{value}{{% endraw %}}"
+    return kwargs
+
+
 def parse_markups(markups: list):
     markups_out = []
 
@@ -476,7 +483,7 @@ def parse_markups(markups: list):
         if markup["type"] == "A":
             if markup["anchorType"] == "LINK":
                 template = jinja_env.from_string('<a style="text-decoration: underline;" rel="{{rel}}" title="{{title}}" href="{{href}}" target="_blank">{{text}}</a>')
-                template = template.render(rel=markup.get("rel", ""), title=markup.get("title", ""), href=markup["href"])
+                template = template.render(raw_render(rel=markup.get("rel", ""), title=markup.get("title", ""), href=markup["href"]))
             elif markup["anchorType"] == "USER":
                 template = jinja_env.from_string('<a style="text-decoration: underline;" href="https://medium.com/u/{{userId}}">{{text}}</a>')
                 template = template.render(userId=markup["userId"])
@@ -499,4 +506,3 @@ def parse_markups(markups: list):
         markups_out.append(markup)
 
     return markups_out
-
