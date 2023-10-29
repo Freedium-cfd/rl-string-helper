@@ -1,7 +1,7 @@
 from loguru import logger
 
 from .logger_trace import trace
-from .utils import quote_html
+from .utils import quote_html, quote_symbol
 
 from jinja2 import Environment, DebugUndefined, Template
 
@@ -77,7 +77,7 @@ class RLStringHelper:
     __slots__ = ("string", "templates", "replaces", "quote_html", "quote_replaces")
 
     def __init__(self, string: str, quote_html: bool = True):
-        self.string = StringAsignmentMix(string)
+        self.string = StringAsignmentMix(quote_symbol(string))
         self.templates = []
         self.quote_replaces = []
         self.replaces = []
