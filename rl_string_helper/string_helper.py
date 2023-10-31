@@ -211,10 +211,13 @@ class RLStringHelper:
 
             for n in range(len(utf_16_bang_list)):
                 utf_16_bang = utf_16_bang_list[n]
-                if utf_16_bang[0] > end:
+                if utf_16_bang[2] > end:
                     utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len + suffix_len, utf_16_bang[1], utf_16_bang[2])
-                elif utf_16_bang[0] > start:
+                elif utf_16_bang[2] > start:
                     utf_16_bang_list[n] = (utf_16_bang[0] + prefix_len, utf_16_bang[1], utf_16_bang[2])
+
+            logger.trace(string_pos_matrix)
+            logger.trace(utf_16_bang_list)
 
         logger.trace(string_pos_matrix)
 

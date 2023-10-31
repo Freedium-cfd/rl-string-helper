@@ -69,6 +69,11 @@ class TestRLStringHelper:
         helper.set_replace(0, 6, "B")
         assert helper.get_text() == "B - 📊 - ABC"
 
+        helper = RLStringHelper("Your support means the world to me. If you found this article valuable and insightful, please consider giving it a round of applause by clicking the clapping hands icon 👏.")
+        helper.set_template(0, 200, "<kr>{{text}}</kr>")
+        helper.set_template(0, 200, "<kz>{{text}}</kz>")
+        assert helper.get_text() == "<kz><kr>Your support means the world to me. If you found this article valuable and insightful, please consider giving it a round of applause by clicking the clapping hands icon 👏.</kr></kz>"
+
         helper = RLStringHelper("TESERT ALMACOM - 📊 - ABC")
         helper.set_replace(0, 14, "B")
         assert helper.get_text() == "B - 📊 - ABC"
