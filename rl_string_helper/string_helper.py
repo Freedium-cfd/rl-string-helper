@@ -375,7 +375,17 @@ class RLStringHelper:
         return self.__str__()
 
 
-def split_overlapping_ranges(positions):
+def split_overlapping_ranges(markups):
+    last_fixed_markup = markups
+    for _ in range(len(markups) * 7):
+        markups = split_overlapping_range_position(markups)
+        if last_fixed_markup and len(last_fixed_markup) == len(markups):
+            break
+        last_fixed_markup = markups
+    return last_fixed_markup
+
+
+def split_overlapping_range_position(positions):
     if not positions:
         return []
 
